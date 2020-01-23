@@ -44,6 +44,8 @@ public class web {
     private String fileUploadPath;
     public static NativeLong g_lVoiceHandle;//全局的语音对讲句柄
 
+    //       设置最多十个视频转码，可以设置大一些，随意的
+    private  CommandManager manager=new CommandManagerImpl(10);
 //    HCNetSDK.NET_DVR_DEVICEINFO_V30 m_strDeviceInfo;//设备信息
 //    HCNetSDK.NET_DVR_IPPARACFG  m_strIpparaCfg;//IP参数
 //    HCNetSDK.NET_DVR_CLIENTINFO m_strClientInfo;//用户参数
@@ -94,15 +96,15 @@ public class web {
         }
         String liveUrl = "";
         String channelName = liveDTO.getChannelName();
-//       设置最多十个视频转码，可以设置大一些，随意的
-        CommandManager manager=new CommandManagerImpl(10);
+
         //通过id查询这个任务
         CommandTasker info=manager.query(channelName);
 //       如果任务没存在，开启视频流
         if(Objects.isNull(info)){
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://admin:password@192.168.123.200/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://admin:linghong2019@192.168.123.200/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
         }
+        // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName 下面这个是http-flv版的流
         liveUrl= "/live?port=1935&app=myapp&stream="+channelName;
 
         return ResultDTO.of(ResultEnum.SUCCESS).setData(liveUrl);
@@ -114,9 +116,10 @@ public class web {
         if(channelList.size()!=0){
             for(String channelName:channelList){
                 //       设置最多十个视频转码，可以设置大一些，随意的
-                CommandManager manager=new CommandManagerImpl(10);
+                // CommandManager manager=new CommandManagerImpl(10);
                 //通过id查询这个任务
                 CommandTasker info=manager.query(channelName);
+                System.out.println(info);
                 //       如果任务存在
                 if(!Objects.isNull(info)){
                     manager.stop(channelName);
@@ -126,7 +129,7 @@ public class web {
         return ResultDTO.of(ResultEnum.SUCCESS);
     }
 
-//    回放
+//    下载文件版回放 耗时较长，建议使用rtsp协议版
     @PostMapping("/getVideoUrl")
     public ResultDTO playback(@RequestBody PlayBackConDTO playBackConDTO, HttpServletRequest request, HttpServletResponse response) throws GlobalException, InterruptedException {
         HttpSession session = request.getSession();
@@ -310,7 +313,7 @@ public class web {
     }
 
     @PostMapping("/playControl")
-    public ResultDTO playControl(@RequestBody PlayControlDTO playControlDTO, HttpServletRequest request) throws GlobalExceptiongi{
+    public ResultDTO playControl(@RequestBody PlayControlDTO playControlDTO, HttpServletRequest request) throws GlobalException{
         HttpSession session = request.getSession();
         NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
         int iCannleNum = getChannelNumber(playControlDTO.getChannelName());
