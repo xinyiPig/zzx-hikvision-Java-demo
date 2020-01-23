@@ -192,7 +192,7 @@ http://192.168.30.53/live?port=1935&app=myapp&stream=home
 
 <img src="https://zz--blog-oss.oss-cn-beijing.aliyuncs.com/%E6%B5%B7%E5%BA%B7java-demo/10.jpg">
 
-### 上传到git的代码经测试无误，flv测试跟rtmp类型，就不做演示了
+### 上传到git的代码经测试无误，flv测试跟rtmp类似，就不做演示了
 
 <img src="https://zz--blog-oss.oss-cn-beijing.aliyuncs.com/%E6%B5%B7%E5%BA%B7java-demo/11.jpg">
 
