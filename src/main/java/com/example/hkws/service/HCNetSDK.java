@@ -31,6 +31,7 @@ public interface HCNetSDK extends StdCallLibrary {
 
     HCNetSDK INSTANCE = (HCNetSDK) Native.loadLibrary("HCNetSDK",
             HCNetSDK.class);
+
     /***宏定义***/
     //常量
 
