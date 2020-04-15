@@ -16,6 +16,9 @@ public class HistoryDTO {
     @ApiModelProperty(name = "如101  前面的1是通道一，后面的1表示码流", value = "channelStream", required = true, dataType = "String")
     public String channelStream;
 
+    @ApiModelProperty(name = "ip", value = "ip", required = false, dataType = "String")
+    public String ip;
+
     @ApiModelProperty(name = "开始时间", value = "20120802t093812z", required = true, dataType = "String")
     public String starttime;
 

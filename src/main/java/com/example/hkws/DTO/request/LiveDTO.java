@@ -18,4 +18,7 @@ public class LiveDTO {
     @ApiModelProperty(name = "channelStream", value = "channelStream", required = true, dataType = "String")
     public String channelStream;
 
+    @ApiModelProperty(name = "ip", value = "ip", required = false, dataType = "String")
+    public String ip;
+
 }

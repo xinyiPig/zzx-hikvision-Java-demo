@@ -46,7 +46,10 @@ public class web {
 
     //       设置最多十个视频转码，可以设置大一些，随意的
     private  CommandManager manager=new CommandManagerImpl(10);
-    private  String accountInfo= "admin:linghong2019@192.168.123.200";
+    /*windows*/
+    private  String winAccountInfo= "admin:linghong2019@192.168.123.200";
+//    linux
+    private  String linuxAccountInfo= "admin:hik12345@";
 //    HCNetSDK.NET_DVR_DEVICEINFO_V30 m_strDeviceInfo;//设备信息
 //    HCNetSDK.NET_DVR_IPPARACFG  m_strIpparaCfg;//IP参数
 //    HCNetSDK.NET_DVR_CLIENTINFO m_strClientInfo;//用户参数
@@ -103,7 +106,7 @@ public class web {
 //       如果任务没存在，开启视频流
         if(Objects.isNull(info)){
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+accountInfo+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+winAccountInfo+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
         liveUrl = "rtmp://localhost:1935/live/"+channelName;
@@ -132,7 +135,7 @@ public class web {
         if(Objects.isNull(info)){
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
             manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
-                    "\"rtsp://"+accountInfo+"/Streaming/tracks/"+historyDTO.getChannelStream()+"?transportmode=unicast&startime="+starttime+"&endtime="+endtime+"\" " +
+                    "\"rtsp://"+winAccountInfo+"/Streaming/tracks/"+historyDTO.getChannelStream()+"?transportmode=unicast&startime="+starttime+"&endtime="+endtime+"\" " +
                     "-f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
@@ -145,6 +148,84 @@ public class web {
 
     @PostMapping("/closeLiveStream")
     public ResultDTO closeLive(@RequestBody CloseLiveDTO closeLiveDTO){
+        List<String> channelList = closeLiveDTO.getChannelList();
+        if(channelList.size()!=0){
+            for(String channelName:channelList){
+                //       设置最多十个视频转码，可以设置大一些，随意的
+                // CommandManager manager=new CommandManagerImpl(10);
+                //通过id查询这个任务
+                CommandTasker info=manager.query(channelName);
+                System.out.println(info);
+                //       如果任务存在
+                if(!Objects.isNull(info)){
+                    manager.stop(channelName);
+                }
+            }
+        }
+        return ResultDTO.of(ResultEnum.SUCCESS);
+    }
+
+
+    @PostMapping("/linux/getLiveStream")
+    @ApiOperation(value="获取实时视频流",notes = "channelStream:101 代表通道一 主码流。102代表通道一 子码流；子码流比主码流小，但画质会有所下降 ，channelName是通道名，能保证唯一即可")
+    public ResultDTO linuxLive(@RequestBody LiveDTO liveDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
+        HttpSession session = request.getSession();
+        NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
+        if(lUserID.intValue()==-1){
+            return ResultDTO.of(ResultEnum.REQUIRE_LOGIN);
+        }
+        String liveUrl = "";
+        String channelName = liveDTO.getChannelName();
+        String ip = liveDTO.getIp();
+
+        //通过id查询这个任务
+        CommandTasker info=manager.query(channelName);
+//       如果任务没存在，开启视频流
+        if(Objects.isNull(info)){
+            //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
+            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+linuxAccountInfo+ip+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+        }
+        // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
+//        liveUrl = "rtmp://localhost:1935/live/"+channelName;
+        // 下面这个是http-flv版的流
+        liveUrl= "/live?port=1935&app=live&stream="+channelName;
+
+        return ResultDTO.of(ResultEnum.SUCCESS).setData(liveUrl);
+    }
+
+    @PostMapping("/linux/getHistoryStream")
+    @ApiOperation(value="获取实时视频流",notes = "channelStream:101 通道一 码流一，channelName是通道名，能保证唯一即可,跟前端约定就以 history为前缀，避免跟上面的channelName冲突了")
+    public ResultDTO linuxHistory(@RequestBody HistoryDTO historyDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
+        HttpSession session = request.getSession();
+        NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
+        if(lUserID.intValue()==-1){
+            return ResultDTO.of(ResultEnum.REQUIRE_LOGIN);
+        }
+        String liveUrl = "";
+        String channelName = historyDTO.getChannelName();
+        String starttime = historyDTO.getStarttime();
+        String endtime = historyDTO.getEndtime();
+        String ip = historyDTO.getIp();
+
+        //通过id查询这个任务
+        CommandTasker info=manager.query(channelName);
+//       如果任务没存在，开启视频流
+        if(Objects.isNull(info)){
+            //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
+            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
+                    "\"rtsp://"+linuxAccountInfo+ip+"/Streaming/tracks/"+historyDTO.getChannelStream()+"?transportmode=unicast&startime="+starttime+"&endtime="+endtime+"\" " +
+                    "-f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+        }
+        // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
+//        liveUrl = "rtmp://localhost:1935/live/"+channelName;
+        // 下面这个是http-flv版的流
+        liveUrl= "/live?port=1935&app=live&stream="+channelName;
+
+        return ResultDTO.of(ResultEnum.SUCCESS).setData(liveUrl);
+    }
+
+    @PostMapping("/linux/closeLiveStream")
+    public ResultDTO linuxCloseLive(@RequestBody CloseLiveDTO closeLiveDTO){
         List<String> channelList = closeLiveDTO.getChannelList();
         if(channelList.size()!=0){
             for(String channelName:channelList){
