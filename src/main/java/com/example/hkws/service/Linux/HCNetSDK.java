@@ -14,10 +14,7 @@
  * @author Xubinfeng
  */
 
-package com.example.hkws.service;
-
-import java.util.Arrays;
-import java.util.List;
+package com.example.hkws.service.Linux;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Library;
@@ -28,7 +25,6 @@ import com.sun.jna.Structure;
 import com.sun.jna.Union;
 import com.sun.jna.examples.win32.GDI32.RECT;
 import com.sun.jna.examples.win32.W32API;
-import com.sun.jna.examples.win32.W32API.HANDLE;
 import com.sun.jna.examples.win32.W32API.HDC;
 import com.sun.jna.examples.win32.W32API.HWND;
 import com.sun.jna.ptr.ByteByReference;

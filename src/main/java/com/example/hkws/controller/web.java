@@ -4,26 +4,20 @@ import com.example.hkws.CommandManager;
 import com.example.hkws.CommandManagerImpl;
 import com.example.hkws.DTO.ResultDTO;
 import com.example.hkws.DTO.request.*;
-import com.example.hkws.constants.ErrorCodeConsts;
 import com.example.hkws.data.CommandTasker;
 import com.example.hkws.enumeration.HKPlayContorlEnum;
 import com.example.hkws.enumeration.ResultEnum;
 import com.example.hkws.exception.GlobalException;
-import com.example.hkws.service.HCNetSDK;
+import com.example.hkws.service.window.HCNetSDK;
 
 import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.annotations.Api;
-import com.sun.jna.Native;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
-import com.sun.jna.examples.win32.W32API.HWND;
-import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.NativeLongByReference;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -32,12 +26,12 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Timer;
 
 @RestController
 @RequestMapping("/camera")
 @Api(description = "海康摄像头模块")
 public class web {
+    // 如果要打包到linux 记得把HCNetSDK 也要换成 linux版的
     static HCNetSDK hCNetSDK = HCNetSDK.INSTANCE;
 //    static PlayCtrl playControl = PlayCtrl.INSTANCE;
     @Value("${file.upload.path}")

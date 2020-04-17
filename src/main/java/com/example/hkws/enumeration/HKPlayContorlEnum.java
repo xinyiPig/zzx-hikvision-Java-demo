@@ -1,7 +1,6 @@
 package com.example.hkws.enumeration;
 
-import com.example.hkws.constants.ErrorCodeConsts;
-import com.example.hkws.service.HCNetSDK;
+import com.example.hkws.service.Linux.HCNetSDK;
 
 /**
  * 错误码
