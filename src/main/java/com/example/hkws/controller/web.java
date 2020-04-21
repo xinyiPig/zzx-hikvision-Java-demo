@@ -4,6 +4,7 @@ import com.example.hkws.CommandManager;
 import com.example.hkws.CommandManagerImpl;
 import com.example.hkws.DTO.ResultDTO;
 import com.example.hkws.DTO.request.*;
+import com.example.hkws.DTO.response.ChannelInfoListDTO;
 import com.example.hkws.data.CommandTasker;
 import com.example.hkws.enumeration.HKPlayContorlEnum;
 import com.example.hkws.enumeration.ResultEnum;
@@ -11,6 +12,7 @@ import com.example.hkws.exception.GlobalException;
 import com.example.hkws.service.window.HCNetSDK;
 
 import io.swagger.annotations.ApiOperation;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.annotations.Api;
@@ -22,20 +24,26 @@ import com.sun.jna.ptr.NativeLongByReference;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.swing.table.DefaultTableModel;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @RestController
 @RequestMapping("/camera")
 @Api(description = "海康摄像头模块")
+@Slf4j
 public class web {
     // 如果要打包到linux 记得把HCNetSDK 也要换成 linux版的
     static HCNetSDK hCNetSDK = HCNetSDK.INSTANCE;
 //    static PlayCtrl playControl = PlayCtrl.INSTANCE;
+    /** 文件存放路径前缀 **/
     @Value("${file.upload.path}")
     private String fileUploadPath;
+
+    /** 文件下载地址前缀 **/
+    @Value("${file.download.path}")
+    private String fileDownloadPath;
+
     public static NativeLong g_lVoiceHandle;//全局的语音对讲句柄
 
     //       设置最多十个视频转码，可以设置大一些，随意的
@@ -82,6 +90,93 @@ public class web {
         List<String>  channelList =  CreateDeviceChannel(lUserID,m_strDeviceInfo);
         System.out.println("channelList"+channelList);
         return ResultDTO.of(ResultEnum.SUCCESS).setData(channelList);
+    }
+
+    /**
+     * 获取设备信息
+     * @Description:
+     * @param loginDTO
+     * @param request
+     * @Date: 2020/4/21
+     * @Time: 16:58
+     * @return: com.example.hkws.DTO.ResultDTO<java.util.List<com.example.hkws.DTO.response.ChannelInfoListDTO>>
+     */
+    @PostMapping("/getDeviceState")
+    public ResultDTO<List<ChannelInfoListDTO>> showState(@RequestBody LoginDTO loginDTO, HttpServletRequest request) throws GlobalException {
+        boolean initSuc = hCNetSDK.NET_DVR_Init();
+        if (initSuc != true)
+        {
+            return ResultDTO.of(ResultEnum.ERROR).setData("初始化失败");
+        }
+        String m_sDeviceIP = loginDTO.getIp();//设备ip地址
+        HCNetSDK.NET_DVR_DEVICEINFO_V30 m_strDeviceInfo = new HCNetSDK.NET_DVR_DEVICEINFO_V30();
+        NativeLong lUserID = hCNetSDK.NET_DVR_Login_V30(m_sDeviceIP,
+                (short) loginDTO.getPort(), loginDTO.getAccount(), loginDTO.getPassword(), m_strDeviceInfo);
+
+        long userID = lUserID.longValue();
+        if (userID == -1)
+        {
+            m_sDeviceIP = "";//登录未成功,IP置为空
+            return ResultDTO.of(ResultEnum.ERROR).setData("登录失败");
+        }
+        HttpSession session = request.getSession();
+        session.setAttribute("m_sDeviceIP",m_sDeviceIP);
+        session.setAttribute("lUserID",lUserID);
+
+        List<ChannelInfoListDTO> channelInfoListDTOList = new ArrayList<>();
+
+        HCNetSDK.NET_DVR_WORKSTATE_V30 m_strWorkState = new HCNetSDK.NET_DVR_WORKSTATE_V30();//调用接口获取设备工作状态
+        boolean getDVRConfigSuc = hCNetSDK.NET_DVR_GetDVRWorkState_V30(lUserID, m_strWorkState);
+        if (getDVRConfigSuc != true)
+        {
+            return ResultDTO.of(ResultEnum.ERROR).setData("获取设备状态失败");
+        }
+
+        //显示IP通道状态
+        //首先获取IP参数,如果IP参数对应通道参数的byEnable为有效,则该通道有效,
+        //再从工作参数结构体中取得相关状态参数,模拟通道号:0-31,IP通道号.32-64
+        IntByReference ibrBytesReturned = new IntByReference(0);//获取IP接入配置参数
+        boolean bRet = false;
+        HCNetSDK.NET_DVR_IPPARACFG m_strIpparaCfg = new HCNetSDK.NET_DVR_IPPARACFG();
+        m_strIpparaCfg.write();
+        Pointer lpIpParaConfig = m_strIpparaCfg.getPointer();
+        bRet = hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_IPPARACFG, new NativeLong(0), lpIpParaConfig, m_strIpparaCfg.size(), ibrBytesReturned);
+        m_strIpparaCfg.read();
+//        if (getDVRConfigSuc != true)
+//        {//设备不支持,则表示没有IP通道
+//            for (int iChannum = 0; iChannum < m_strDeviceInfo.byChanNum; iChannum++)
+//            {
+//                bChannelEnabled[iChannum] = true;
+//            }
+//        } else
+//        {//包含IP通道
+//            for (int iChannum = 0; iChannum < m_strDeviceInfo.byChanNum; iChannum++)
+//            {
+//                bChannelEnabled[iChannum] = (m_strIpparaCfg.byAnalogChanEnable[iChannum] == 1) ? true : false;
+//            }
+//        }
+        for(int iChannum =0; iChannum < HCNetSDK.MAX_IP_CHANNEL; iChannum++) {
+            //判断对应IP通道是否有效
+            if (m_strIpparaCfg.struIPChanInfo[iChannum].byEnable == 1) {
+                ChannelInfoListDTO channelInfoListDTO = new ChannelInfoListDTO();
+                //添加IP通道号
+                String sIp = new String(m_strIpparaCfg.struIPDevInfo[iChannum].struIP.sIpV4);
+                System.out.println("sIp:" + sIp);
+                String channelIp = "IPCamera-" + (iChannum + m_strDeviceInfo.byStartChan) + "-" + sIp;
+                channelIp = channelIp.replaceAll("[\u0000]", "");
+
+                channelInfoListDTO.setIPAddress(channelIp); //设置IP
+                channelInfoListDTO.setByRecordStatic(m_strWorkState.struChanStatic[32 + iChannum].byRecordStatic); //通道是否在录像,0-不录像,1-录像
+                channelInfoListDTO.setBySignalStatic(m_strWorkState.struChanStatic[32 + iChannum].bySignalStatic); //连接的信号状态,0-正常,1-信号丢失
+                channelInfoListDTO.setByHardwareStatic(m_strWorkState.struChanStatic[32 + iChannum].byHardwareStatic); //通道硬件状态,0-正常,1-异常,例如DSP死掉
+                channelInfoListDTO.setDwBitRate(m_strWorkState.struChanStatic[32 + iChannum].dwBitRate); //实际码率
+                channelInfoListDTO.setDwLinkNum(m_strWorkState.struChanStatic[32 + iChannum].dwLinkNum); //客户端连接的个数
+
+                channelInfoListDTOList.add(channelInfoListDTO);
+            }
+        }
+
+        return ResultDTO.of(ResultEnum.SUCCESS).setData(channelInfoListDTOList);
     }
 
     @PostMapping("/getLiveStream")
@@ -268,13 +363,20 @@ public class web {
                          System.out.println(playBackConDTO.toString());
                          System.out.println("lUserID:"+lUserID);
                          System.out.println("m_iChanShowNum:"+m_iChanShowNum);
-                         String fileName = sDeviceIP+"/"+m_iChanShowNum+"/"+struStartTime.toStringTitle() + ".mp4";
-                         String sFileName = fileUploadPath +fileName;
+                         String fileName = sDeviceIP+"/"+m_iChanShowNum+"/";
+                         String fileTitle = struStartTime.toStringTitle() + ".mp4";
+                         String sFileName = fileUploadPath +fileName + fileTitle; //文件存放地址
+                         String downloadPath = fileDownloadPath + fileName + fileTitle; //文件下载地址
                          System.out.println(sFileName);
+                         File file = new File(fileUploadPath +fileName);
+                         if (!file.exists()) {
+                             file.mkdirs();
+                         }
 
                          // 视频下载调用 下载的文件是mpeg-ps 非标准的mpeg-4
                         m_lLoadHandle = hCNetSDK.NET_DVR_GetFileByTime(lUserID, new NativeLong(m_iChanShowNum), struStartTime,
                                          struStopTime, sFileName);
+                        System.out.println("m_lLoadHandle："+m_lLoadHandle);
                          if (m_lLoadHandle.intValue() >= 0) {
 //                             开始下载
                              hCNetSDK.NET_DVR_PlayBackControl(m_lLoadHandle, HCNetSDK.NET_DVR_PLAYSTART, 0, null);
@@ -288,8 +390,6 @@ public class web {
                                      System.out.println("按时间下载结束!");
                                      Integer error =  hCNetSDK.NET_DVR_GetLastError();
                                      System.out.println("last error " +error);
-
-
                                  }
                                  if (nPos.getValue() > 100) {
                                      Integer error =  hCNetSDK.NET_DVR_GetLastError();
@@ -300,7 +400,7 @@ public class web {
                                  }
                                  Thread.sleep(500);
                              }
-                             return ResultDTO.of(ResultEnum.SUCCESS).setData(sFileName);
+                             return ResultDTO.of(ResultEnum.SUCCESS).setData(downloadPath);
 
 
                              // System.out.println("视频下载成功！");
@@ -487,11 +587,14 @@ public class web {
             for(int iChannum =0; iChannum < HCNetSDK.MAX_IP_CHANNEL; iChannum++)
                 if (m_strIpparaCfg.struIPChanInfo[iChannum].byEnable == 1)
                 {
-                    channelList.add("IPCamera" + (iChannum + m_strDeviceInfo.byStartChan));
-
+                    String sIp = new String(m_strIpparaCfg.struIPDevInfo[iChannum].struIP.sIpV4);
+                    System.out.println("sIp:" + sIp);
+                    String channel = "IPCamera-" + (iChannum + m_strDeviceInfo.byStartChan) + "-" + sIp;
+                    channel = channel.replaceAll("[\u0000]", "");
+                    channelList.add(channel);
                 }
         }
-    return channelList;
+        return channelList;
     }
     /*************************************************
      函数:    getChannelNumber
@@ -513,8 +616,10 @@ public class web {
             {
                 if(sChannelName.charAt(0) == 'I')//IPCamara开头表示IP通道
                 {
+                    String[] val = sChannelName.split("-");
                     //子字符创中获取通道号,IP通道号要加32
-                    iChannelNum = Integer.parseInt(sChannelName.substring(8)) + 32;
+//                    iChannelNum = Integer.parseInt(sChannelName.substring(8)) + 32;
+                    iChannelNum = Integer.parseInt(val[1]) + HCNetSDK.MAX_IP_CHANNEL;
                 }
                 else
                 {
@@ -524,6 +629,7 @@ public class web {
 
         return iChannelNum;
     }
+
 
 
 
