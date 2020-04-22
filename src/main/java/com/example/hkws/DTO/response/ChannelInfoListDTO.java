@@ -27,6 +27,6 @@ public class ChannelInfoListDTO {
     public int dwLinkNum;
 
     @ApiModelProperty(name = "设备IP")
-    public String IPAddress;
+    public String ipAddress;
 
 }

@@ -161,11 +161,9 @@ public class web {
                 ChannelInfoListDTO channelInfoListDTO = new ChannelInfoListDTO();
                 //添加IP通道号
                 String sIp = new String(m_strIpparaCfg.struIPDevInfo[iChannum].struIP.sIpV4);
-                System.out.println("sIp:" + sIp);
-                String channelIp = "IPCamera-" + (iChannum + m_strDeviceInfo.byStartChan) + "-" + sIp;
-                channelIp = channelIp.replaceAll("[\u0000]", "");
+                String channelIp = sIp.replaceAll("[\u0000]", "");
 
-                channelInfoListDTO.setIPAddress(channelIp); //设置IP
+                channelInfoListDTO.setIpAddress(channelIp); //设置IP
                 channelInfoListDTO.setByRecordStatic(m_strWorkState.struChanStatic[32 + iChannum].byRecordStatic); //通道是否在录像,0-不录像,1-录像
                 channelInfoListDTO.setBySignalStatic(m_strWorkState.struChanStatic[32 + iChannum].bySignalStatic); //连接的信号状态,0-正常,1-信号丢失
                 channelInfoListDTO.setByHardwareStatic(m_strWorkState.struChanStatic[32 + iChannum].byHardwareStatic); //通道硬件状态,0-正常,1-异常,例如DSP死掉
