@@ -363,7 +363,7 @@ public class web {
                          System.out.println("lUserID:"+lUserID);
                          System.out.println("m_iChanShowNum:"+m_iChanShowNum);
                          String fileName = sDeviceIP+"/"+m_iChanShowNum+"/";
-                         String fileTitleN = struStartTime.toStringTitle(); //文件名
+                         String fileTitleN = struStartTime.toStringTitle() + "-" + System.currentTimeMillis(); //文件名
                          String fileTitle = fileTitleN + ".mp4"; //文件名加文件类型后缀
                          String sFileName = fileUploadPath +fileName + fileTitle; //文件存放地址
                          String zipFilePath = fileUploadPath + fileName + fileTitleN + ".zip"; //压缩文件路径

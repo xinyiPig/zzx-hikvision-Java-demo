@@ -36,7 +36,7 @@ public class ZipUtils {
                 File sourceFile = new File(dir);
                 sourceFileList.add(sourceFile);
             }
-            compress(sourceFileList, zos, true);
+            compress(sourceFileList, zos, false);
             long end = System.currentTimeMillis();
             System.out.println("压缩完成，耗时：" + (end - start) + " ms");
         } catch (Exception e) {
