@@ -11,6 +11,7 @@ import com.example.hkws.enumeration.ResultEnum;
 import com.example.hkws.exception.GlobalException;
 import com.example.hkws.service.window.HCNetSDK;
 
+import com.example.hkws.util.ZipUtils;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -362,9 +363,11 @@ public class web {
                          System.out.println("lUserID:"+lUserID);
                          System.out.println("m_iChanShowNum:"+m_iChanShowNum);
                          String fileName = sDeviceIP+"/"+m_iChanShowNum+"/";
-                         String fileTitle = struStartTime.toStringTitle() + ".mp4";
+                         String fileTitleN = struStartTime.toStringTitle(); //文件名
+                         String fileTitle = fileTitleN + ".mp4"; //文件名加文件类型后缀
                          String sFileName = fileUploadPath +fileName + fileTitle; //文件存放地址
-                         String downloadPath = fileDownloadPath + fileName + fileTitle; //文件下载地址
+                         String zipFilePath = fileUploadPath + fileName + fileTitleN + ".zip"; //压缩文件路径
+                         String downloadPath = fileDownloadPath + fileName + fileTitleN + ".zip"; //文件下载地址
                          System.out.println(sFileName);
                          File file = new File(fileUploadPath +fileName);
                          if (!file.exists()) {
@@ -386,6 +389,13 @@ public class web {
                                      hCNetSDK.NET_DVR_StopGetFile(m_lLoadHandle);
                                      m_lLoadHandle.setValue(-1);
                                      System.out.println("按时间下载结束!");
+                                     // 将文件压成zip压缩包
+                                     try {
+                                         ZipUtils.toZip(new String[]{sFileName} , zipFilePath, Boolean.TRUE);
+                                     } catch (Exception e) {
+                                         e.printStackTrace();
+                                         return ResultDTO.of(ResultEnum.ERROR.getCode(), "压缩zip出错");
+                                     }
                                      Integer error =  hCNetSDK.NET_DVR_GetLastError();
                                      System.out.println("last error " +error);
                                  }
