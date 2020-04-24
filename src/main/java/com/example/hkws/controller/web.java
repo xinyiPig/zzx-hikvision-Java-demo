@@ -83,6 +83,7 @@ public class web {
         if (userID == -1)
         {
             m_sDeviceIP = "";//登录未成功,IP置为空
+            System.out.println("Login error: " +  hCNetSDK.NET_DVR_GetLastError());
             return ResultDTO.of(ResultEnum.ERROR).setData("登录失败");
         }
         HttpSession session = request.getSession();
@@ -118,6 +119,7 @@ public class web {
         if (userID == -1)
         {
             m_sDeviceIP = "";//登录未成功,IP置为空
+            System.out.println("Login error: " +  hCNetSDK.NET_DVR_GetLastError());
             return ResultDTO.of(ResultEnum.ERROR).setData("登录失败");
         }
         HttpSession session = request.getSession();
