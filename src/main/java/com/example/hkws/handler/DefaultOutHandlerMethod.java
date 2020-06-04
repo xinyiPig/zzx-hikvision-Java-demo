@@ -26,6 +26,7 @@ public class DefaultOutHandlerMethod implements OutHandlerMethod{
 		}else {
 			isBroken=false;
 			System.err.println(id + "消息：" + msg);
+
 					
 		}
 

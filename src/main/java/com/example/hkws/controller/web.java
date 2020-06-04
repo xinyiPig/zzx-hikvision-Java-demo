@@ -4,13 +4,16 @@ import com.example.hkws.CommandManager;
 import com.example.hkws.CommandManagerImpl;
 import com.example.hkws.DTO.ResultDTO;
 import com.example.hkws.DTO.request.*;
+import com.example.hkws.constants.ErrorCodeConsts;
 import com.example.hkws.data.CommandTasker;
 import com.example.hkws.enumeration.HKPlayContorlEnum;
 import com.example.hkws.enumeration.ResultEnum;
 import com.example.hkws.exception.GlobalException;
-import com.example.hkws.service.window.HCNetSDK;
 
+ import com.example.hkws.service.window.HCNetSDK;
+//import com.example.hkws.service.Linux.HCNetSDK;
 import io.swagger.annotations.ApiOperation;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.annotations.Api;
@@ -26,16 +29,42 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 
 @RestController
 @RequestMapping("/camera")
 @Api(description = "海康摄像头模块")
+@Slf4j
 public class web {
     // 如果要打包到linux 记得把HCNetSDK 也要换成 linux版的
     static HCNetSDK hCNetSDK = HCNetSDK.INSTANCE;
-//    static PlayCtrl playControl = PlayCtrl.INSTANCE;
-    @Value("${file.upload.path}")
+
+    @Value("${fileUploadPath}")
     private String fileUploadPath;
+
+    @Value("${ipc.account}")
+    private String ipcAccount;
+
+    @Value("${ipc.password}")
+    private String ipcPassword;
+
+    @Value("${nvr.account}")
+    private String nvrAccount;
+
+    @Value("${nvr.password}")
+    private String nvrPassword;
+
+    @Value("${nvr.ip}")
+    private String nvrIp;
+
+
+    @Value("${currentserver}")
+    private String currentserver;
+
+    @Value("${videoStreamPort}")
+    private String videoStreamPort;
+
+
     public static NativeLong g_lVoiceHandle;//全局的语音对讲句柄
 
     //       设置最多十个视频转码，可以设置大一些，随意的
@@ -43,22 +72,17 @@ public class web {
     /*windows*/
     private  String winAccountInfo= "admin:linghong2019@192.168.123.200";
 //    linux
-    private  String linuxAccountInfo= "admin:hik12345@";
-//    HCNetSDK.NET_DVR_DEVICEINFO_V30 m_strDeviceInfo;//设备信息
-//    HCNetSDK.NET_DVR_IPPARACFG  m_strIpparaCfg;//IP参数
-//    HCNetSDK.NET_DVR_CLIENTINFO m_strClientInfo;//用户参数
+    private  String linuxAccountInfo= "admin:asdf1234@";
 
     boolean bRealPlay;//是否在预览.
-//    String m_sDeviceIP;//已登录设备的IP地址
 
-//    NativeLong lUserID;//用户句柄
     NativeLong lPreviewHandle;//预览句柄
     NativeLongByReference m_lPort;//回调预览时播放库端口指针
 
     NativeLong lAlarmHandle;//报警布防句柄
     NativeLong lListenHandle;//报警监听句柄
 
-    @PostMapping("/login")
+   @PostMapping("/login")
     public ResultDTO login(@RequestBody LoginDTO loginDTO, HttpServletRequest request) throws GlobalException {
         boolean initSuc = hCNetSDK.NET_DVR_Init();
         if (initSuc != true)
@@ -84,8 +108,8 @@ public class web {
         return ResultDTO.of(ResultEnum.SUCCESS).setData(channelList);
     }
 
-    @PostMapping("/getLiveStream")
-    @ApiOperation(value="获取实时视频流",notes = "channelStream:101 代表通道一 主码流。102代表通道一 子码流；子码流比主码流小，但画质会有所下降 ，channelName是通道名，能保证唯一即可")
+//    @PostMapping("/getLiveStream")
+//    @ApiOperation(value="window,获取实时视频流",notes = "channelStream:101 代表通道一 主码流。102代表通道一 子码流；子码流比主码流小，但画质会有所下降 ，channelName是通道名，能保证唯一即可")
     public ResultDTO live(@RequestBody LiveDTO liveDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
         HttpSession session = request.getSession();
         NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
@@ -100,10 +124,40 @@ public class web {
 //       如果任务没存在，开启视频流
         if(Objects.isNull(info)){
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+winAccountInfo+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+winAccountInfo+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 1480*500  -max_muxing_queue_size 1024 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
         liveUrl = "rtmp://localhost:1935/live/"+channelName;
+        // 下面这个是http-flv版的流
+//        liveUrl= "/live?port=1935&app=myapp&stream="+channelName;
+
+        return ResultDTO.of(ResultEnum.SUCCESS).setData(liveUrl);
+    }
+
+    @PostMapping("/getLiveStreamByIp")
+    @ApiOperation(value="windows 获取实时视频流",notes = "channelStream:101 代表通道一 主码流。102代表通道一 子码流；子码流比主码流小，但画质会有所下降 ，channelName是通道名，能保证唯一即可")
+    public ResultDTO getLiveStreamByIp(@RequestBody LiveDTO liveDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
+
+        String liveUrl = "";
+        String channelName = liveDTO.getChannelName();
+        String ip = liveDTO.getIp();
+        String channelStream = liveDTO.getChannelStream();
+
+        //通过id查询这个任务
+        CommandTasker info=manager.query(channelName);
+//       如果任务没存在，开启视频流
+        if(Objects.isNull(info)){
+            //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
+            try {
+               String result= manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+ipcAccount+":"+ipcPassword+"@"+ip+"/Streaming/Channels/"+channelStream+"?transportmode=unicast\" -f flv -vcodec h264 -preset ultrafast -b:v 500k  -tune zerolatency -acodec copy -ar 44100 -strict -2 -ac 1  -s 1280*500 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+                log.info("result"+result);
+            }catch (Exception e){
+                log.info("windows:"+e.getMessage());
+                throw new GlobalException(ErrorCodeConsts.ERROR,e.getMessage());
+            }
+        }
+        // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
+        liveUrl = "rtmp://"+currentserver+":1935/live/"+channelName;
         // 下面这个是http-flv版的流
 //        liveUrl= "/live?port=1935&app=myapp&stream="+channelName;
 
@@ -111,29 +165,35 @@ public class web {
     }
 
     @PostMapping("/getHistoryStream")
-    @ApiOperation(value="获取实时视频流",notes = "channelStream:101 通道一 码流一，channelName是通道名，能保证唯一即可,跟前端约定就以 history为前缀，避免跟上面的channelName冲突了")
+    @ApiOperation(value="windows 获取历史视频流",notes = "channelStream:101 通道一 码流一，channelName是通道名，能保证唯一即可,跟前端约定就以 history为前缀，避免跟上面的channelName冲突了")
     public ResultDTO history(@RequestBody HistoryDTO historyDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
-        HttpSession session = request.getSession();
-        NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
-        if(lUserID.intValue()==-1){
-            return ResultDTO.of(ResultEnum.REQUIRE_LOGIN);
-        }
         String liveUrl = "";
         String channelName = historyDTO.getChannelName();
+        String ip = historyDTO.getIp();
+        //
+        String channelStream = winGetChannelNumByIp(ip)+"01";
         String starttime = historyDTO.getStarttime();
         String endtime = historyDTO.getEndtime();
 
         //通过id查询这个任务
         CommandTasker info=manager.query(channelName);
 //       如果任务没存在，开启视频流
-        if(Objects.isNull(info)){
+        if(Objects.isNull(info)) {
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
-                    "\"rtsp://"+winAccountInfo+"/Streaming/tracks/"+historyDTO.getChannelStream()+"?transportmode=unicast&startime="+starttime+"&endtime="+endtime+"\" " +
-                    "-f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+            try{
+             String result = manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
+                    "\"rtsp://"+nvrAccount+":"+nvrPassword+"@"+nvrIp+"/Streaming/tracks/" + channelStream + "?starttime=" + starttime + "&endtime=" + endtime + "\" " +
+                    "-f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 1480*500 -max_muxing_queue_size 1024 -q 10 \"rtmp://localhost:1935/live/\"" + channelName);
+                log.info("result"+result);
+
+            }catch (Exception e){
+                log.info("windows history:"+e.getMessage());
+
+                throw new GlobalException(ErrorCodeConsts.ERROR,e.getMessage());
+                }
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
-        liveUrl = "rtmp://localhost:1935/live/"+channelName;
+        liveUrl = "rtmp://"+currentserver+":1935/live/"+channelName;
         // 下面这个是http-flv版的流
 //        liveUrl= "/live?port=1935&app=myapp&stream="+channelName;
 
@@ -141,7 +201,9 @@ public class web {
     }
 
     @PostMapping("/closeLiveStream")
+    @ApiOperation(value="windows 关闭视频流")
     public ResultDTO closeLive(@RequestBody CloseLiveDTO closeLiveDTO){
+       log.info("关闭视频流");
         List<String> channelList = closeLiveDTO.getChannelList();
         if(channelList.size()!=0){
             for(String channelName:channelList){
@@ -160,14 +222,10 @@ public class web {
     }
 
 
-    @PostMapping("/linux/getLiveStream")
-    @ApiOperation(value="获取实时视频流",notes = "channelStream:101 代表通道一 主码流。102代表通道一 子码流；子码流比主码流小，但画质会有所下降 ，channelName是通道名，能保证唯一即可")
-    public ResultDTO linuxLive(@RequestBody LiveDTO liveDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
-        HttpSession session = request.getSession();
-        NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
-        if(lUserID.intValue()==-1){
-            return ResultDTO.of(ResultEnum.REQUIRE_LOGIN);
-        }
+    @PostMapping("/linux/getLiveStreamByIp")
+    @ApiOperation(value="linux，获取实时视频流",notes = "channelStream:101 代表通道一 主码流。102代表通道一 子码流；子码流比主码流小，但画质会有所下降 ，channelName是通道名，能保证唯一即可")
+    public ResultDTO linuxGetLiveStreamByIp(@RequestBody LiveDTO liveDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
+
         String liveUrl = "";
         String channelName = liveDTO.getChannelName();
         String ip = liveDTO.getIp();
@@ -175,50 +233,58 @@ public class web {
         //通过id查询这个任务
         CommandTasker info=manager.query(channelName);
 //       如果任务没存在，开启视频流
-        if(Objects.isNull(info)){
+        if(Objects.isNull(info)) {
+            try{
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+linuxAccountInfo+ip+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+                manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+ipcAccount+":"+ipcPassword+"@" + ip + "/Streaming/Channels/" + liveDTO.getChannelStream() + "?transportmode=unicast\" -f flv -vcodec h264 -preset ultrafast -b:v 500k  -tune zerolatency -acodec copy -ar 44100 1480trict -2 -ac 1 -s 1480*500 -max_muxing_queue_size 1024 -q 10 \"rtmp://localhost:1935/live/\"" + channelName);
+             }catch (Exception e){
+                log.info("linux:"+e.getMessage());
+
+                throw new GlobalException(ErrorCodeConsts.ERROR,e.getMessage());
+            }
         }
-        // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
 //        liveUrl = "rtmp://localhost:1935/live/"+channelName;
-        // 下面这个是http-flv版的流
-        liveUrl= "/live?port=1935&app=live&stream="+channelName;
+        // 下面这个是http-flv版的流,前端显示时加上ip地址即可
+        liveUrl= "http://"+currentserver+":"+videoStreamPort+"/live?port=1935&app=live&stream="+channelName;
 
         return ResultDTO.of(ResultEnum.SUCCESS).setData(liveUrl);
     }
 
     @PostMapping("/linux/getHistoryStream")
-    @ApiOperation(value="获取实时视频流",notes = "channelStream:101 通道一 码流一，channelName是通道名，能保证唯一即可,跟前端约定就以 history为前缀，避免跟上面的channelName冲突了")
+    @ApiOperation(value="linux，获取历史视频流",notes = "channelStream:101 通道一 码流一，channelName是通道名，能保证唯一即可,跟前端约定就以 history为前缀，避免跟上面的channelName冲突了")
     public ResultDTO linuxHistory(@RequestBody HistoryDTO historyDTO, HttpServletRequest request, HttpServletResponse response) throws  GlobalException{
-        HttpSession session = request.getSession();
-        NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
-        if(lUserID.intValue()==-1){
-            return ResultDTO.of(ResultEnum.REQUIRE_LOGIN);
-        }
         String liveUrl = "";
         String channelName = historyDTO.getChannelName();
         String starttime = historyDTO.getStarttime();
         String endtime = historyDTO.getEndtime();
         String ip = historyDTO.getIp();
-
+        String channelStrem = linuxGetChannelNumByIp(ip)+"01";
         //通过id查询这个任务
         CommandTasker info=manager.query(channelName);
 //       如果任务没存在，开启视频流
         if(Objects.isNull(info)){
-            //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
-                    "\"rtsp://"+linuxAccountInfo+ip+"/Streaming/tracks/"+historyDTO.getChannelStream()+"?transportmode=unicast&startime="+starttime+"&endtime="+endtime+"\" " +
-                    "-f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 640*360 -q 10 \"rtmp://localhost:1935/live/\""+channelName);
+           try {
+               //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
+               //172.32.251.66 只能从nvr设备上去取历史rtsp流
+               manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
+                       "\"rtsp://"+nvrAccount+":"+nvrPassword+"@"+nvrIp+"/Streaming/tracks/" + channelStrem + "?transportmode=unicast&startime=" + starttime + "&endtime=" + endtime + "\" " +
+                       "-f flv -vcodec h264 -preset ultrafast -b:v 500k  -tune zerolatency -acodec copy -ar 44100 -strict -2 -ac 1  -s 1480*500  -max_muxing_queue_size 1024 -q 10 \"rtmp://localhost:1935/live/\"" + channelName);
+           }catch (Exception e){
+               log.info("linux history:"+e.getMessage());
+
+               throw new GlobalException(ErrorCodeConsts.ERROR,e.getMessage());
+            }
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
 //        liveUrl = "rtmp://localhost:1935/live/"+channelName;
-        // 下面这个是http-flv版的流
-        liveUrl= "/live?port=1935&app=live&stream="+channelName;
+        // 下面这个是http-flv版的流，前端显示时加上ip地址即可
+        liveUrl= "http://"+currentserver+":"+videoStreamPort+"/live?port=1935&app=live&stream="+channelName;
 
         return ResultDTO.of(ResultEnum.SUCCESS).setData(liveUrl);
     }
 
     @PostMapping("/linux/closeLiveStream")
+    @ApiOperation(value="linux，关闭视频流")
     public ResultDTO linuxCloseLive(@RequestBody CloseLiveDTO closeLiveDTO){
         List<String> channelList = closeLiveDTO.getChannelList();
         if(channelList.size()!=0){
@@ -314,7 +380,7 @@ public class web {
         return ResultDTO.of(ResultEnum.ERROR);
     }
 
-    @RequestMapping(value = "/videoPlay", method = RequestMethod.GET)
+//    @RequestMapping(value = "/videoPlay", method = RequestMethod.GET)
     public void videoPlay(HttpServletRequest request, HttpServletResponse response,@RequestParam String url) {
 //        String path = request.getServletContext().getRealPath(url);
         String path = fileUploadPath+url;
@@ -420,7 +486,7 @@ public class web {
         }
     }
 
-    @PostMapping("/playControl")
+//    @PostMapping("/playControl")
     public ResultDTO playControl(@RequestBody PlayControlDTO playControlDTO, HttpServletRequest request) throws GlobalException{
         HttpSession session = request.getSession();
         NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
@@ -446,6 +512,154 @@ public class web {
             return ResultDTO.of(ResultEnum.ERROR).setData(error);
         }
         return ResultDTO.of(ResultEnum.SUCCESS);
+    }
+
+    /**
+     * @Description: 返回通道数，要根据这个通道数组装成 102,101这种通道流去找nvr要数据
+     * @Param:
+     * @Author: zzx 774286887@qq.com
+     * @Date: 2020/5/28
+     * @Time: 17:06
+     * @return:
+     */
+    public String  winGetChannelNumByIp(String ip) throws GlobalException {
+        String channelNum = "";
+        boolean initSuc = hCNetSDK.NET_DVR_Init();
+        if (initSuc != true)
+        {
+            throw new GlobalException (ErrorCodeConsts.ERROR,"刻录机初始化失败");
+        }
+        String m_sDeviceIP = nvrIp;//设备ip地址
+        HCNetSDK.NET_DVR_DEVICEINFO_V30 m_strDeviceInfo = new HCNetSDK.NET_DVR_DEVICEINFO_V30();
+        NativeLong lUserID = hCNetSDK.NET_DVR_Login_V30(m_sDeviceIP,
+                (short) 8000, nvrAccount,nvrPassword, m_strDeviceInfo);
+
+        long userID = lUserID.longValue();
+        if (userID == -1)
+        {
+            m_sDeviceIP = "";//登录未成功,IP置为空
+            throw new GlobalException (ErrorCodeConsts.ERROR,"刻录机登录失败");
+        }
+        IntByReference ibrBytesReturned = new IntByReference(0);//获取IP接入配置参数
+        boolean bRet = false;
+
+        HCNetSDK.NET_DVR_IPPARACFG m_strIpparaCfg = new HCNetSDK.NET_DVR_IPPARACFG();
+        m_strIpparaCfg.write();
+        Pointer lpIpParaConfig = m_strIpparaCfg.getPointer();
+        bRet = hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_IPPARACFG, new NativeLong(0), lpIpParaConfig, m_strIpparaCfg.size(), ibrBytesReturned);
+        m_strIpparaCfg.read();
+
+        if (!bRet)
+        {
+            //设备不支持,则表示没有IP通道
+            for (int iChannum = 0; iChannum < m_strDeviceInfo.byChanNum; iChannum++)
+            {
+
+
+            }
+        }
+        else
+        {
+            //设备支持IP通道
+            for (int iChannum = 0; iChannum < m_strDeviceInfo.byChanNum; iChannum++)
+            {
+                if(m_strIpparaCfg.byAnalogChanEnable[iChannum] == 1)
+                {
+
+                }
+            }
+            for(int iChannum =0; iChannum < HCNetSDK.MAX_IP_CHANNEL; iChannum++)
+                if (m_strIpparaCfg.struIPChanInfo[iChannum].byEnable == 1)
+                {
+                    String channelIp = (new String(m_strIpparaCfg.struIPDevInfo[iChannum].struIP.sIpV4));
+                    channelIp=channelIp.trim();
+                    log.info("channelIp:"+channelIp.length());
+                    log.info("ip:"+ip.length());
+                    log.info(String.valueOf(channelIp.equals(ip)));
+                    if(channelIp.equals(ip)){
+                        channelNum=(String.valueOf(iChannum+1));
+                    }
+
+                }
+        }
+        if(Objects.isNull(channelNum)){
+            throw new GlobalException(ErrorCodeConsts.ERROR,"获取通道号失败，历史回放不成功");
+        }
+        return channelNum;
+    }
+
+    /**
+     * @Description: 返回通道数，要根据这个通道数组装成 102,101这种通道流去找nvr要数据
+     * @Param:
+     * @Author: zzx 774286887@qq.com
+     * @Date: 2020/5/28
+     * @Time: 17:06
+     * @return:
+     */
+    public String  linuxGetChannelNumByIp(String ip) throws GlobalException {
+        String channelNum = "";
+        boolean initSuc = hCNetSDK.NET_DVR_Init();
+        if (initSuc != true)
+        {
+            throw new GlobalException (ErrorCodeConsts.ERROR,"刻录机初始化失败");
+        }
+        String m_sDeviceIP = nvrIp;//设备ip地址
+        HCNetSDK.NET_DVR_DEVICEINFO_V30 m_strDeviceInfo = new HCNetSDK.NET_DVR_DEVICEINFO_V30();
+        NativeLong lUserID = hCNetSDK.NET_DVR_Login_V30(m_sDeviceIP,
+                (short) 8000, nvrAccount,nvrPassword, m_strDeviceInfo);
+
+        long userID = lUserID.longValue();
+        if (userID == -1)
+        {
+            m_sDeviceIP = "";//登录未成功,IP置为空
+            throw new GlobalException (ErrorCodeConsts.ERROR,"刻录机登录失败");
+        }
+        IntByReference ibrBytesReturned = new IntByReference(0);//获取IP接入配置参数
+        boolean bRet = false;
+
+        HCNetSDK.NET_DVR_IPPARACFG m_strIpparaCfg = new HCNetSDK.NET_DVR_IPPARACFG();
+        m_strIpparaCfg.write();
+        Pointer lpIpParaConfig = m_strIpparaCfg.getPointer();
+        bRet = hCNetSDK.NET_DVR_GetDVRConfig(lUserID, HCNetSDK.NET_DVR_GET_IPPARACFG, new NativeLong(0), lpIpParaConfig, m_strIpparaCfg.size(), ibrBytesReturned);
+        m_strIpparaCfg.read();
+
+        if (!bRet)
+        {
+            //设备不支持,则表示没有IP通道
+            for (int iChannum = 0; iChannum < m_strDeviceInfo.byChanNum; iChannum++)
+            {
+
+
+            }
+        }
+        else
+        {
+            //设备支持IP通道
+            for (int iChannum = 0; iChannum < m_strDeviceInfo.byChanNum; iChannum++)
+            {
+                if(m_strIpparaCfg.byAnalogChanEnable[iChannum] == 1)
+                {
+
+                }
+            }
+            for(int iChannum =0; iChannum < HCNetSDK.MAX_IP_CHANNEL; iChannum++)
+                if (m_strIpparaCfg.struIPChanInfo[iChannum].byEnable == 1)
+                {
+                    String channelIp = (new String(m_strIpparaCfg.struIPDevInfo[iChannum].struIP.sIpV4));
+                    channelIp=channelIp.trim();
+                    log.info("channelIp:"+channelIp.length());
+                    log.info("ip:"+ip.length());
+                    log.info(String.valueOf(channelIp.equals(ip)));
+                    if(channelIp.equals(ip)){
+                        channelNum=(String.valueOf(iChannum+1));
+                    }
+
+                }
+        }
+        if(Objects.isNull(channelNum)){
+            throw new GlobalException(ErrorCodeConsts.ERROR,"获取通道号失败，历史回放不成功");
+        }
+        return channelNum;
     }
 
 
@@ -487,6 +701,7 @@ public class web {
             for(int iChannum =0; iChannum < HCNetSDK.MAX_IP_CHANNEL; iChannum++)
                 if (m_strIpparaCfg.struIPChanInfo[iChannum].byEnable == 1)
                 {
+                    System.out.println(new String(m_strIpparaCfg.struIPDevInfo[iChannum].struIP.sIpV4));
                     channelList.add("IPCamera" + (iChannum + m_strDeviceInfo.byStartChan));
 
                 }

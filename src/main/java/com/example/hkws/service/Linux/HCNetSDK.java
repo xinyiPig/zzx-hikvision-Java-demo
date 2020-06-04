@@ -37,7 +37,7 @@ import com.sun.jna.ptr.ShortByReference;
 //SDK接口说明,HCNetSDK.dll
 public interface HCNetSDK extends Library {
 
-    HCNetSDK INSTANCE = (HCNetSDK) Native.loadLibrary("HCNetSDK",
+    HCNetSDK INSTANCE = (HCNetSDK) Native.loadLibrary("hcnetsdk",
             HCNetSDK.class);
     /***宏定义***/
     //常量

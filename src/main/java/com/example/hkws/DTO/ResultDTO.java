@@ -6,7 +6,7 @@ import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.springframework.data.domain.Page;
+//import org.springframework.data.domain.Page;
 
 import java.util.Objects;
 
@@ -77,15 +77,7 @@ public class ResultDTO<T> {
 		return result;
 	}
 
-	@SuppressWarnings("rawtypes")
-	public ResultDTO setPage(Page page) {
-		if (Objects.nonNull(page)) {
-//			this.totalPage = page.getTotalPages();
-			this.totalSize = page.getTotalElements();
-			this.data = (T) page.getContent();
-		}
-		return this;
-	}
+
 
 	@SuppressWarnings("unchecked")
 	public ResultDTO setData(Object data) {
