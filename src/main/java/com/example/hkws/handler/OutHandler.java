@@ -1,6 +1,7 @@
 package com.example.hkws.handler;
 
 import com.example.hkws.CommandManager;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.io.InputStreamReader;
  * @since jdk1.7
  * @version 2017年10月13日
  */
+@Slf4j
 public class OutHandler extends Thread {
 	/**控制状态 */
 	private volatile boolean desstatus = true;
@@ -90,18 +92,21 @@ public class OutHandler extends Thread {
 		String msg = null;
 		try {
 			if (CommandManager.config.isDebug()) {
+				log.info(id + "开始推流！");
 				System.out.println(id + "开始推流！");
 			} 
 			while (desstatus && (msg = br.readLine()) != null) {
 				ohm.parse(id,msg);
 				if(ohm.isbroken()) {
+					log.info("检测到中断，提交重启任务给保活处理器"+id);
 					System.err.println("检测到中断，提交重启任务给保活处理器");
 					//如果发生异常中断，立即进行保活
 					//把中断的任务交给保活处理器进行进一步处理
-					KeepAliveHandler.add(id);
+//					KeepAliveHandler.add(id);
 				}
 			}
 		} catch (IOException e) {
+			log.info("发生内部异常错误，自动关闭[" + this.getId() + "]线程");
 			System.out.println("发生内部异常错误，自动关闭[" + this.getId() + "]线程");
 			destroy();
 		} finally {

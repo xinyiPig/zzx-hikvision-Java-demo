@@ -8,10 +8,12 @@ import com.example.hkws.data.CommandTasker;
 import com.example.hkws.data.TaskDao;
 import com.example.hkws.data.TaskDaoImpl;
 import com.example.hkws.handler.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * FFmpeg命令操作管理器
@@ -20,6 +22,7 @@ import java.util.Map;
  * @since jdk1.7
  * @version 2017年10月13日
  */
+@Slf4j
 public class CommandManagerImpl implements CommandManager {
 	/**
 	 * 任务持久化器
@@ -222,10 +225,18 @@ public class CommandManagerImpl implements CommandManager {
 			if (config.isDebug())
 				System.out.println("正在停止任务：" + id);
 			CommandTasker tasker = taskDao.get(id);
-			if (taskHandler.stop(tasker.getProcess(), tasker.getThread())) {
-				taskDao.remove(id);
-				return true;
-			}
+			log.info("tasker.getProcess()"+ (tasker.getProcess()));
+			log.info("tasker.getThread()"+tasker.getThread());
+
+			Boolean	isStop = taskHandler.stop(tasker.getProcess(), tasker.getThread());
+				log.info(String.valueOf(isStop));
+				if(isStop){
+					taskDao.remove(id);
+					log.info("已停止任务 process：" +tasker.getProcess());
+					log.info("已停止任务：" + id);
+					return true;
+				}
+
 		}
 		System.err.println("停止任务失败！id=" + id);
 		return false;

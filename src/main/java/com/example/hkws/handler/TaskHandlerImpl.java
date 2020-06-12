@@ -5,6 +5,7 @@ package com.example.hkws.handler;
 import com.example.hkws.CommandManager;
 import com.example.hkws.data.CommandTasker;
 import com.example.hkws.util.ExecUtil;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
@@ -14,6 +15,7 @@ import java.io.IOException;
  * @since jdk1.7
  * @version 2016年10月29日
  */
+@Slf4j
 public class TaskHandlerImpl implements TaskHandler {
 	
 	private OutHandlerMethod ohm=null;
@@ -33,10 +35,12 @@ public class TaskHandlerImpl implements TaskHandler {
 			tasker = ExecUtil.createTasker(id,command,ohm);
 			
 			if(CommandManager.config.isDebug())
+				log.info(id+" 执行命令行："+command);
 				System.out.println(id+" 执行命令行："+command);
 			
 			return tasker;
 		} catch (IOException e) {
+			log.info(id+" 执行命令失败！进程和输出线程已停止"+e.getMessage());
 			System.out.println(e.getMessage());
 			//运行失败，停止任务
 			ExecUtil.stop(tasker);
