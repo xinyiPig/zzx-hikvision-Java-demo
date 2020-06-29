@@ -124,7 +124,7 @@ public class web {
 //       如果任务没存在，开启视频流
         if(Objects.isNull(info)){
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+winAccountInfo+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec h264 -vprofile baseline -acodec aac -ar 44100 -strict -2 -ac 1 -f flv -s 1480*500  -max_muxing_queue_size 1024 -crf 15 \"rtmp://localhost:1935/live/\""+channelName);
+            manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+winAccountInfo+"/Streaming/Channels/"+liveDTO.getChannelStream()+"?transportmode=unicast\" -f flv -vcodec copy -acodec copy -s 1480*500 -crf 15 \"rtmp://localhost:1935/live/\""+channelName);
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
         liveUrl = "rtmp://localhost:1935/live/"+channelName;
@@ -149,7 +149,7 @@ public class web {
         if(Objects.isNull(info)){
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
             try {
-               String result= manager.start(channelName, "ffmpeg   -rtsp_transport tcp -i \"rtsp://"+ipcAccount+":"+ipcPassword+"@"+ip+"/Streaming/Channels/"+channelStream+"?transportmode=unicast\" -f flv -vcodec h264 -preset ultrafast -b:v 500k  -tune zerolatency -acodec copy -ar 44100 -strict -2 -ac 1  -s 1480*500 -crf 15 \"rtmp://localhost:1935/live/\""+channelName);
+               String result= manager.start(channelName, "ffmpeg   -rtsp_transport tcp -i \"rtsp://"+ipcAccount+":"+ipcPassword+"@"+ip+"/Streaming/Channels/"+channelStream+"?transportmode=unicast\" -f flv -vcodec h264 -acodec aac -ar 44100  -s 1480*500 -crf 15 \"rtmp://localhost:1935/live/\""+channelName);
                 log.info("result"+result);
             }catch (Exception e){
                 log.info("windows:"+e.getMessage());
@@ -185,7 +185,7 @@ public class web {
             try{
              String result = manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
                     "\"rtsp://"+nvrAccount+":"+nvrPassword+"@"+nvrIp+"/Streaming/tracks/" + channelStream + "?starttime=" + starttime + "&endtime=" + endtime + "\" " +
-                    " -f flv -vcodec h264 -acodec copy  -s 1480*500 -crf 15 \"rtmp://localhost:1935/live/\"" + channelName);
+                    " -f flv -vcodec h264 -acodec aac -ar 44100  -s 1480*500 -crf 15 \"rtmp://localhost:1935/live/\"" + channelName);
                 log.info("result"+result);
 
             }catch (Exception e){
@@ -245,7 +245,7 @@ public class web {
         if(Objects.isNull(info)) {
             try{
             //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
-                manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i \"rtsp://"+ipcAccount+":"+ipcPassword+"@" + ip + "/Streaming/Channels/" + liveDTO.getChannelStream() + "?transportmode=unicast\" -f flv -vcodec h264 -preset ultrafast -b:v 500k  -tune zerolatency -acodec copy -ar 44100 1480trict -2 -ac 1 -s 1480*500 -max_muxing_queue_size 1024 -crf 15 \"rtmp://localhost:1935/live/\"" + channelName);
+                manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i rtsp://"+ipcAccount+":"+ipcPassword+"@" + ip + "/Streaming/Channels/" + liveDTO.getChannelStream() + "?transportmode=unicast -f flv  -b:v 1000K -vcodec h264  -acodec aac  -s 1480*500  -crf 15 rtmp://localhost:1935/live/" + channelName);
              }catch (Exception e){
                 log.info("linux:"+e.getMessage());
 
@@ -275,9 +275,8 @@ public class web {
            try {
                //执行原生ffmpeg命令（不包含ffmpeg的执行路径，该路径会从配置文件中自动读取）
                //172.32.251.66 只能从nvr设备上去取历史rtsp流
-               manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i " +
-                       "\"rtsp://"+nvrAccount+":"+nvrPassword+"@"+nvrIp+"/Streaming/tracks/" + channelStrem + "?transportmode=unicast&startime=" + starttime + "&endtime=" + endtime + "\" " +
-                       "-f flv -vcodec h264 -acodec copy -preset veryfast -b:v 500k  -tune zerolatency -ar 44100 -strict -2 -ac 1  -s 1480*500  -max_muxing_queue_size 1024 -crf 15 \"rtmp://localhost:1935/live/\"" + channelName);
+               manager.start(channelName, "ffmpeg -re  -rtsp_transport tcp -i rtsp://"+nvrAccount+":"+nvrPassword+"@"+nvrIp+"/Streaming/tracks/" + channelStrem + "?transportmode=unicast&startime=" + starttime + "&endtime=" + endtime +
+                       "-f flv -b:v 1000K  -vcodec h264  -acodec aac  -s 1480*500   -crf 15 \"rtmp://localhost:1935/live/" + channelName);
            }catch (Exception e){
                log.info("linux history:"+e.getMessage());
 
@@ -286,6 +285,7 @@ public class web {
         }
         // 如果是window rtmp版就返回 rtmp://localhost:1935/live/\""+channelName
 //        liveUrl = "rtmp://localhost:1935/live/"+channelName;
+        log.info("/linux/getHistoryStream");
         // 下面这个是http-flv版的流，前端显示时加上ip地址即可
         liveUrl= "http://"+currentserver+":"+videoStreamPort+"/live?port=1935&app=live&stream="+channelName;
 
@@ -302,7 +302,7 @@ public class web {
                 // CommandManager manager=new CommandManagerImpl(10);
                 //通过id查询这个任务
                 CommandTasker info=manager.query(channelName);
-
+                log.info("/linux/getHistoryStream");
                 //       如果任务存在
                 if(!Objects.isNull(info)){
                     try {

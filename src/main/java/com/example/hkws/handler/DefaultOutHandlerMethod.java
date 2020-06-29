@@ -31,7 +31,7 @@ public class DefaultOutHandlerMethod implements OutHandlerMethod{
 
 			isBroken=true;
 		}
-		else if(msg.indexOf("libpostproc")!=-1||msg.indexOf("libavutil")!=-1||msg.indexOf("libavcodec")!=-1||msg.indexOf("libavformat")!=-1||msg.indexOf("libavfilter")!=-1||msg.indexOf("libswscale")!=-1||msg.indexOf("libswresample")!=-1){
+		else if(msg.indexOf("Failed to update header with correct ")!=-1){
 			log.info(id+"摄像头可能已经连不上了，请检查"+msg);
 			AutoKillTask.taskIdSet.add(id);
 			isBroken=false;
@@ -39,9 +39,6 @@ public class DefaultOutHandlerMethod implements OutHandlerMethod{
 		else {
 			isBroken=false;
 			log.info(id + "消息：" + msg);
-
-//			System.err.println(id + "消息：" + msg);
-
 					
 		}
 
