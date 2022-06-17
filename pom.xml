@@ -19,7 +19,7 @@
         <!-- swagger -->
         <swagger.version>2.6.1</swagger.version>
         <!-- alibaba json 版本 -->
-        <ali.jason.version>1.2.47</ali.jason.version>
+        <ali.jason.version>1.2.83</ali.jason.version>
     </properties>
 
     <dependencies>
