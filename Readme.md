@@ -8,6 +8,14 @@ categories:
 
 
 ---
+example.jar, jna.jar打入pom中
+###
+```shell
+mvn install:install-file -Dfile=F:\github\zzx-hikvision-Java-demo\jna.jar -DgroupId=com.sun.jna -DartifactId=test -Dversion=1.0 -Dpackaging=jar
+mvn install:install-file -Dfile=F:\github\zzx-hikvision-Java-demo\examples.jar -DgroupId=com.sun.jna.examples -DartifactId=test -Dversion=1.0 -Dpackaging=jar
+```
+
+###
 
 ### 一：下载海康JAVA-DEMO
 
