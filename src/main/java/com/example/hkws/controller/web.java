@@ -36,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,6 +47,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Vector;
 
 @RestController
 @RequestMapping("/camera")
@@ -103,7 +106,7 @@ public class web {
     @PostMapping("/login")
     public ResultDTO login(@RequestBody LoginDTO loginDTO, HttpServletRequest request) throws GlobalException {
         boolean initSuc = hCNetSDK.NET_DVR_Init();
-        if (initSuc != true) {
+        if (!initSuc) {
             return ResultDTO.of(ResultEnum.ERROR).setData("初始化失败");
         }
         String m_sDeviceIP = loginDTO.getIp();//设备ip地址
@@ -332,9 +335,110 @@ public class web {
         return ResultDTO.of(ResultEnum.SUCCESS);
     }
 
-    //    下载文件版回放 耗时较长，建议使用rtsp协议版
-    @PostMapping("/getVideoUrl")
-    public ResultDTO playback(@RequestBody PlayBackConDTO playBackConDTO, HttpServletRequest request, HttpServletResponse response) throws GlobalException, InterruptedException {
+
+    /**
+     * 根据搜索信息搜索录像文件
+     * @param playBackConDTO
+     * @param request
+     * @param response
+     * @return
+     */
+    public ResultDTO getRecords(@RequestBody PlayBackConDTO playBackConDTO, HttpServletRequest request, HttpServletResponse response) {
+
+        HCNetSDK.NET_DVR_FILECOND m_strFilecond = new HCNetSDK.NET_DVR_FILECOND();
+        m_strFilecond.struStartTime = new HCNetSDK.NET_DVR_TIME();
+        m_strFilecond.struStopTime = new HCNetSDK.NET_DVR_TIME();
+        m_strFilecond.struStartTime.dwYear = playBackConDTO.getStartYear();//开始时间
+        m_strFilecond.struStartTime.dwMonth = playBackConDTO.getStartMonth();
+        m_strFilecond.struStartTime.dwDay = playBackConDTO.getStartDay();
+        m_strFilecond.struStartTime.dwHour = playBackConDTO.getStartHour();
+        m_strFilecond.struStartTime.dwMinute = playBackConDTO.getStartMinute();
+        m_strFilecond.struStartTime.dwSecond = playBackConDTO.getStartSecond();
+        m_strFilecond.struStopTime.dwYear = playBackConDTO.getEndYear();//结束时间
+        m_strFilecond.struStopTime.dwMonth = playBackConDTO.getEndMonth();
+        m_strFilecond.struStopTime.dwDay = playBackConDTO.getEndDay();
+        m_strFilecond.struStopTime.dwHour = playBackConDTO.getEndHour();
+        m_strFilecond.struStopTime.dwMinute = playBackConDTO.getEndMinute();
+        m_strFilecond.struStopTime.dwSecond = playBackConDTO.getEndSecond();
+        m_strFilecond.lChannel = new NativeLong(getChannelNumber(playBackConDTO.getChannelName()));//通道号
+//        m_strFilecond.dwFileType = jComboBoxFlieType.getSelectedIndex();//文件类型  "全部", "解锁", "锁定"
+        m_strFilecond.dwIsLocked = 0xff;
+//        m_strFilecond.dwUseCardNo = jRadioButtonByCardNumber.isSelected() ? 1 : 0;  //是否使用卡号
+        if (m_strFilecond.dwUseCardNo == 1) {
+//            m_strFilecond.sCardNumber = jTextFieldCardNumber.getText().getBytes();//卡号
+            System.out.printf("卡号%s", m_strFilecond.sCardNumber);
+        }
+        NativeLong lUserID = (NativeLong) request.getSession().getAttribute("lUserID");
+        NativeLong lFindFile = hCNetSDK.NET_DVR_FindFile_V30(lUserID, m_strFilecond);
+        HCNetSDK.NET_DVR_FINDDATA_V30 strFile = new HCNetSDK.NET_DVR_FINDDATA_V30();
+        long findFile = lFindFile.longValue();
+        if (findFile > -1) {
+            System.out.println("file" + findFile);
+        }
+        NativeLong lnext;
+        strFile = new HCNetSDK.NET_DVR_FINDDATA_V30();
+
+        while (true) {
+            lnext = hCNetSDK.NET_DVR_FindNextFile_V30(lFindFile, strFile);
+            if (lnext.intValue() == HCNetSDK.NET_DVR_FILE_SUCCESS) {
+                //搜索成功
+//                DefaultTableModel FileTableModel = ((DefaultTableModel) jTableFile.getModel());//获取表格模型
+                Vector<String> newRow = new Vector<String>();
+
+                //添加文件名信息
+                String[] s = new String[2];
+                s = new String(strFile.sFileName).split("\0", 2);
+                newRow.add(new String(s[0]));
+
+                int iTemp;
+                String MyString;
+                if (strFile.dwFileSize < 1024 * 1024) {
+                    iTemp = (strFile.dwFileSize) / (1024);
+                    MyString = iTemp + "K";
+                } else {
+                    iTemp = (strFile.dwFileSize) / (1024 * 1024);
+                    MyString = iTemp + "M   ";
+                    iTemp = ((strFile.dwFileSize) % (1024 * 1024)) / (1204);
+                    MyString = MyString + iTemp + "K";
+                }
+                newRow.add(MyString);                            //添加文件大小信息
+                newRow.add(strFile.struStartTime.toStringTime());//添加开始时间信息
+                newRow.add(strFile.struStopTime.toStringTime()); //添加结束时间信息
+
+//                FileTableModel.getDataVector().add(newRow);
+
+            } else {
+                if (lnext.intValue() == HCNetSDK.NET_DVR_ISFINDING) {//搜索中
+                    System.out.println("搜索中");
+                    continue;
+                } else {
+                    if (lnext.intValue() == HCNetSDK.NET_DVR_FILE_NOFIND) {
+                        System.out.println("没有搜到文件");
+                    } else {
+                        System.out.println("搜索文件结束");
+                        boolean flag = hCNetSDK.NET_DVR_FindClose_V30(lFindFile);
+                        if (!flag) {
+                            System.out.println("结束搜索失败");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 下载文件版回放 耗时较长，建议使用rtsp协议版
+     * 可以再下载之前，确定时间段之内是否存在视频
+     *
+     * @param playBackConDTO
+     * @param request
+     * @param response
+     * @return
+     * @throws GlobalException
+     * @throws InterruptedException
+     */
+    @PostMapping("/getFileByTime")
+    public ResultDTO getFileByTime(@RequestBody PlayBackConDTO playBackConDTO, HttpServletRequest request, HttpServletResponse response) throws GlobalException, InterruptedException {
         HttpSession session = request.getSession();
         NativeLong lUserID = (NativeLong) session.getAttribute("lUserID");
         String sDeviceIP = (String) session.getAttribute("m_sDeviceIP");
@@ -383,15 +487,12 @@ public class web {
                         System.out.println("按时间下载结束!");
                         Integer error = hCNetSDK.NET_DVR_GetLastError();
                         System.out.println("last error " + error);
-
-
                     }
                     if (nPos.getValue() > 100) {
                         Integer error = hCNetSDK.NET_DVR_GetLastError();
                         System.out.println("下载失败");// 按时间
                         System.out.println("last error " + error);
                         return ResultDTO.of(ResultEnum.ERROR).setData(error);
-
                     }
                     Thread.sleep(500);
                 }
